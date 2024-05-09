@@ -25,7 +25,7 @@ use std::borrow::Borrow;
 use std::collections::hash_map::RandomState;
 use std::collections::{self, BTreeSet};
 use std::fmt::{Debug, Error, Formatter};
-use std::hash::{BuildHasher, Hash};
+use std::hash::{BuildHasher, Hash, Hasher};
 use std::iter::{FromIterator, FusedIterator, Sum};
 use std::ops::{Add, Deref, Mul};
 
@@ -794,6 +794,22 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         f.debug_set().entries(self.iter()).finish()
+    }
+}
+
+impl<A, S> Hash for HashSet<A, S>
+where
+    A: Hash + Eq,
+    S: BuildHasher,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let mut proxy_map: crate::OrdMap<u64, usize> = crate::OrdMap::new();
+        for i in self.iter() {
+            let mut h = std::hash::DefaultHasher::new();
+            i.hash(&mut h);
+            *proxy_map.entry(h.finish()).or_default() += 1;
+        }
+        proxy_map.hash(state);
     }
 }
 
